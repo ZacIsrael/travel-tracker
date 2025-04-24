@@ -33,7 +33,7 @@ const db = new pg.Client({
 db.connect();
 
 // retrieve all of the rows/entries from the "visited_countries" table in the "world" database
-db.query("SELECT * FROM visited_countries", (err, res) => {
+await db.query("SELECT * FROM visited_countries", (err, res) => {
   if (err) {
     // an error occured
     console.err("Error executing query: ", err.stack);
