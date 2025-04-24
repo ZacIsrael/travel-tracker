@@ -77,19 +77,69 @@ app.post("/add", async (req, res) => {
   console.log("req.body, ", req.body);
   let countryToAdd = req.body.country;
   
-  if(countryToAdd.trim().length === 0){
+
+  if (countryToAdd.trim().length === 0) {
     // user put space(s) as the country to be added
-    console.error(`POSTT \'/add\' route: Please enter a country before clicking the \'add\' button.`);
-
+    console.error(
+      `POST \'/add\' route: Please enter a country before clicking the \'add\' button.`
+    );
   } else {
+    // In the countries database, all of the countries start with a capital letter, 
+    // all of the other letters are lowercase so we must clean up the user's input 
+    // before we test it against the table in our database.
+    countryToAdd = countryToAdd.toLowerCase();
+    countryToAdd = countryToAdd.charAt(0).toUpperCase() + countryToAdd.slice(1);
+
+    console.log('countryToAdd = ', countryToAdd);
     // Check countries table to see if the user's input is actually a valid country
+    try {
+      const result = await db.query(
+        `SELECT * FROM ${countries} WHERE country_name = \'${countryToAdd}\'`
+      );
+      let validCountry = result.rows;
+      console.log(
+        "validCountry = ",
+        validCountry,
+        "\nvalidCountry.length = ",
+        validCountry.length
+      );
 
-    // If a country is returned, get its country code and then add it to the visited_countries
-    // table. Otherwise, throw an error saying that the user's input is not a valid country
+      if (validCountry.length !== 1) {
+        // If a country is not returned, throw an error saying that the user's input is not a valid country
+        console.error(
+          `POST \'/add\' route: ${countryToAdd} is not a country. Please enter a country.`
+        );
+      } else {
+        // Otherwise, get its country code 
+        let code = validCountry[0].country_code;
 
+        try {
+          // and then add it to the visited_countries table.
+          const insertCode = await db.query(`INSERT INTO ${visitedCountriesTable} (country_code) VALUES (\'${code}\')`);
+          console.log('Inserted code result = ', insertCode);
+
+          if(insertCode.rowCount === 1){
+            console.log(`${countryToAdd} was added successfully!`);
+            // return to the home page where the user will see the updated version of the map (the country the added will be colored in)
+            res.redirect('/');
+          } else {
+            console.error(`Error inserting new code for ${countryToAdd}`);
+          }
+
+        } catch (err) {
+          // an error occured
+          console.error(`Error executing query on ${visitedCountriesTable} table: `, err.stack);
+          res.status(500).send("Internal Server Error.");
+        }
+      }
+      // If a country is returned, get its country code and then add it to the visited_countries
+      // table. Otherwise, throw an error saying that the user's input is not a valid country
+    } catch (err) {
+      // an error occured
+      console.error(`Error executing query on ${countries} table: `, err.stack);
+      res.status(500).send("Internal Server Error.");
+    }
   }
-
-  
 });
 
 // close the connection to the database
