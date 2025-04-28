@@ -129,7 +129,6 @@ app.post("/add", async (req, res) => {
           // line 374 in index.ejs expects a "total" values which holds the total number of countries in the array
           total: countries.length,
         });
-        
       } else {
         // Otherwise, get its country code
         let code = validCountry[0].country_code;
@@ -149,12 +148,33 @@ app.post("/add", async (req, res) => {
             console.error(`Error inserting new code for ${countryToAdd}`);
           }
         } catch (err) {
-          // an error occured
+          // an error occured, tried to add a country thta already exists
           console.error(
             `Error executing query on ${visitedCountriesTable} table: `,
             err.stack
           );
-          res.status(500).send("Internal Server Error.");
+
+          // The code below is necessary for what needs to be sent to the ejs file, I might create a separate function to handle this
+          // array that will get sent to the EJS file
+          let countries = [];
+          // retrieve all of the rows/entries from the "visited_countries" table in the "world" database
+          let queryResult = await db.query(
+            `SELECT * FROM ${visitedCountriesTable}`
+          );
+          visitedCountries = queryResult.rows;
+
+          // clean up the data so that only the country codes will be sent to the EJS file (and not the id generated from postgreSQL)
+          visitedCountries.forEach((val) => {
+            countries.push(val.country_code);
+          });
+
+          res.render("index", {
+            error: `${countryToAdd} already exists, try again.`,
+            countries: countries,
+            // line 374 in index.ejs expects a "total" values which holds the total number of countries in the array
+            total: countries.length,
+          });
+          // res.status(500).send("Internal Server Error.");
         }
       }
       // If a country is returned, get its country code and then add it to the visited_countries
