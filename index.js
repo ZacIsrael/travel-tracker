@@ -76,7 +76,6 @@ app.get("/", async (req, res) => {
 app.post("/add", async (req, res) => {
   console.log("req.body, ", req.body);
   let countryToAdd = req.body.country;
-  
 
   if (countryToAdd.trim().length === 0) {
     // user put space(s) as the country to be added
@@ -84,13 +83,13 @@ app.post("/add", async (req, res) => {
       `POST \'/add\' route: Please enter a country before clicking the \'add\' button.`
     );
   } else {
-    // In the countries database, all of the countries start with a capital letter, 
-    // all of the other letters are lowercase so we must clean up the user's input 
+    // In the countries database, all of the countries start with a capital letter,
+    // all of the other letters are lowercase so we must clean up the user's input
     // before we test it against the table in our database.
     countryToAdd = countryToAdd.toLowerCase();
     countryToAdd = countryToAdd.charAt(0).toUpperCase() + countryToAdd.slice(1);
 
-    console.log('countryToAdd = ', countryToAdd);
+    console.log("countryToAdd = ", countryToAdd);
     // Check countries table to see if the user's input is actually a valid country
     try {
       const result = await db.query(
@@ -109,26 +108,52 @@ app.post("/add", async (req, res) => {
         console.error(
           `POST \'/add\' route: ${countryToAdd} is not a country. Please enter a country.`
         );
+
+        // The code below is necessary for what needs to be sent to the ejs file, I might create a separate function to handle this
+        // array that will get sent to the EJS file
+        let countries = [];
+        // retrieve all of the rows/entries from the "visited_countries" table in the "world" database
+        let queryResult = await db.query(
+          `SELECT * FROM ${visitedCountriesTable}`
+        );
+        visitedCountries = queryResult.rows;
+
+        // clean up the data so that only the country codes will be sent to the EJS file (and not the id generated from postgreSQL)
+        visitedCountries.forEach((val) => {
+          countries.push(val.country_code);
+        });
+
+        res.render("index", {
+          error: `${countryToAdd} does not exist, try again.`,
+          countries: countries,
+          // line 374 in index.ejs expects a "total" values which holds the total number of countries in the array
+          total: countries.length,
+        });
+        
       } else {
-        // Otherwise, get its country code 
+        // Otherwise, get its country code
         let code = validCountry[0].country_code;
 
         try {
           // and then add it to the visited_countries table.
-          const insertCode = await db.query(`INSERT INTO ${visitedCountriesTable} (country_code) VALUES (\'${code}\')`);
-          console.log('Inserted code result = ', insertCode);
+          const insertCode = await db.query(
+            `INSERT INTO ${visitedCountriesTable} (country_code) VALUES (\'${code}\')`
+          );
+          console.log("Inserted code result = ", insertCode);
 
-          if(insertCode.rowCount === 1){
+          if (insertCode.rowCount === 1) {
             console.log(`${countryToAdd} was added successfully!`);
             // return to the home page where the user will see the updated version of the map (the country the added will be colored in)
-            res.redirect('/');
+            res.redirect("/");
           } else {
             console.error(`Error inserting new code for ${countryToAdd}`);
           }
-
         } catch (err) {
           // an error occured
-          console.error(`Error executing query on ${visitedCountriesTable} table: `, err.stack);
+          console.error(
+            `Error executing query on ${visitedCountriesTable} table: `,
+            err.stack
+          );
           res.status(500).send("Internal Server Error.");
         }
       }
